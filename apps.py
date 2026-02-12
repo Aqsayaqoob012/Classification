@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from collections import Counter
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -672,26 +673,33 @@ st.info("""
 - Relevant certifications and popular job roles slightly favor shortlisting.
 """)
 
+
 st.title("🔍 Machine Learning Model Comparison App")
 
-# Drop unnecessary columns
-df = df.drop(["Resume_ID", "Name", "AI Score (0-100)"], axis=1)
 
+
+# Drop unnecessary columns
+df = df.drop(["Resume_ID", "Name", "AI Score (0-100)"], axis=1, errors="ignore")
+
+# Optional: Create Num_Skills if needed
+if "Skills" in df.columns:
+    df['Num_Skills'] = df['Skills'].apply(lambda x: len(str(x).split(',')))
 
 target = "Recruiter Decision"
-
-X = df.drop(target, axis=1)
+X = df.drop(columns=[target])
 y = df[target]
 
-categorical_cols = X.select_dtypes(include=["object"]).columns
-numerical_cols = X.select_dtypes(exclude=["object"]).columns
+categorical_cols = X.select_dtypes(include=["object"]).columns.tolist()
+numerical_cols = X.select_dtypes(exclude=["object"]).columns.tolist()
 
-# Train Test Split
+# Train-test split
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
+# ==============================
 # Preprocessing
+# ==============================
 preprocessor = ColumnTransformer(
     transformers=[
         ("num", StandardScaler(), numerical_cols),
@@ -699,45 +707,49 @@ preprocessor = ColumnTransformer(
     ]
 )
 
-# Models
+# ==============================
+# Define Models
+# ==============================
 models = {
     "Logistic Regression": LogisticRegression(max_iter=1000),
     "Decision Tree": DecisionTreeClassifier(),
     "Random Forest": RandomForestClassifier(),
     "Gradient Boosting": GradientBoostingClassifier(),
-    "SVM": SVC()
+    "SVM": SVC(probability=True)
 }
 
+best_pipeline = None
+best_f1 = 0
 results = []
 
+# ==============================
+# Train & Evaluate Models
+# ==============================
 for name, model in models.items():
-
     pipeline = Pipeline(steps=[
         ("preprocessing", preprocessor),
         ("model", model)
     ])
-
     pipeline.fit(X_train, y_train)
 
-    # Predictions
     y_train_pred = pipeline.predict(X_train)
     y_test_pred = pipeline.predict(X_test)
 
-    # Train Metrics
     train_acc = accuracy_score(y_train, y_train_pred)
     train_prec = precision_score(y_train, y_train_pred, average="weighted")
     train_rec = recall_score(y_train, y_train_pred, average="weighted")
     train_f1 = f1_score(y_train, y_train_pred, average="weighted")
 
-    # Test Metrics
     test_acc = accuracy_score(y_test, y_test_pred)
     test_prec = precision_score(y_test, y_test_pred, average="weighted")
     test_rec = recall_score(y_test, y_test_pred, average="weighted")
     test_f1 = f1_score(y_test, y_test_pred, average="weighted")
 
-    # Overfitting / Underfitting Logic
-    gap = train_f1 - test_f1
+    if test_f1 > best_f1:
+        best_f1 = test_f1
+        best_pipeline = pipeline
 
+    gap = train_f1 - test_f1
     if train_f1 < 0.70 and test_f1 < 0.70:
         status = "Underfitting"
     elif gap > 0.10:
@@ -746,27 +758,97 @@ for name, model in models.items():
         status = "Generalized"
 
     results.append([
-        name,
-        train_acc, train_prec, train_rec, train_f1,
-        test_acc, test_prec, test_rec, test_f1,
-        status
+        name, train_acc, train_prec, train_rec, train_f1,
+        test_acc, test_prec, test_rec, test_f1, status
     ])
 
-# Create DataFrame
-results_df = pd.DataFrame(results, columns=[
-    "Model",
-    "Train Accuracy", "Train Precision", "Train Recall", "Train F1-Score",
-    "Test Accuracy", "Test Precision", "Test Recall", "Test F1-Score",
-    "Status"
-])
+import os
 
-# Sort by Test F1
-results_df = results_df.sort_values(by="Test F1-Score", ascending=False)
+if best_pipeline is not None:
+    joblib.dump(best_pipeline, "best_model.pkl")
+else:
+    st.error("❌ Best model pipeline not found! Check your training loop.")   
+
+# ==============================
+# Show Model Performance
+# ==============================
+results_df = pd.DataFrame(results, columns=[
+    "Model", "Train Accuracy", "Train Precision", "Train Recall", "Train F1-Score",
+    "Test Accuracy", "Test Precision", "Test Recall", "Test F1-Score", "Status"
+]).sort_values(by="Test F1-Score", ascending=False)
 
 st.header("📋 Model Performance Comparison")
 st.table(results_df)
 
-# Highlight Best Model
-best_model = results_df.iloc[0]
-st.success(f"🏆 Best Model: {best_model['Model']} ({best_model['Status']})")
+best_model_info = results_df.iloc[0]
+st.success(f"🏆 Best Model: {best_model_info['Model']} ({best_model_info['Status']})")
 
+# ==============================
+# Save Best Model
+# ==============================
+if best_pipeline is not None:
+    joblib.dump(best_pipeline, "best_model.pkl")
+else:
+    st.error("❌ No best model found!")
+
+# ==============================
+# Load Best Model (cached)
+# ==============================
+@st.cache_resource
+def load_model():
+    return joblib.load("best_model.pkl")
+
+best_model_pipeline = load_model()
+
+
+@st.cache_resource
+def load_model():
+    if os.path.exists("best_model.pkl"):
+        return joblib.load("best_model.pkl")
+    else:
+        st.error("❌ best_model.pkl not found!")
+        return None
+
+best_model_pipeline = load_model()
+
+# ==============================
+# Prediction UI
+# ==============================
+st.header("🔮 Candidate Prediction")
+
+# Example input
+skills = st.text_input("Skills (comma separated)", "Python, SQL")
+num_skills = len(skills.split(",")) if skills else 0
+experience = st.number_input("Experience (Years)", 0, 50)
+education = st.selectbox("Education", ["Bachelors", "Masters", "PhD", "Diploma", "Other"])
+certifications = st.text_input("Certifications (comma separated)", "AWS")
+job_role = st.selectbox("Job Role", ["Data Scientist", "ML Engineer", "Software Engineer", "Other"])
+salary = st.number_input("Salary Expectation ($)", 0, 100000)
+projects = st.number_input("Projects Count", 0, 50)
+
+if st.button("Predict Candidate"):
+    sample = pd.DataFrame({
+        "Skills": [skills],
+        "Num_Skills": [num_skills],
+        "Experience (Years)": [experience],
+        "Education": [education],
+        "Certifications": [certifications],
+        "Job Role": [job_role],
+        "Salary Expectation ($)": [salary],
+        "Projects Count": [projects]
+    })
+
+    if best_model_pipeline is not None:
+        prediction = best_model_pipeline.predict(sample)
+
+        if prediction[0] == 1 or prediction[0] == "Shortlisted":
+            st.success("✅ Candidate Shortlisted")
+        else:
+            st.error("❌ Candidate Rejected")
+
+        # Probability
+        if hasattr(best_model_pipeline, "predict_proba"):
+            prob = best_model_pipeline.predict_proba(sample)
+            st.info(f"📊 Shortlist Probability: {prob[0][1]*100:.2f}%")
+    else:
+        st.error("❌ Cannot predict. Best model not available!")
