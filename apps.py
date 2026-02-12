@@ -5,10 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 
-
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -566,69 +568,103 @@ st.info("""
 - Relevant certifications and popular job roles slightly favor shortlisting.
 """)
 
+st.title("🔍 Machine Learning Model Comparison App")
+
+# Drop unnecessary columns
+df = df.drop(["Resume_ID", "Name", "AI Score (0-100)"], axis=1)
 
 
-st.header("🛠 Data Preprocessing")
+target = "Recruiter Decision"
 
-# 1️⃣ Handle Missing Values for Certifications
-if 'Certifications' in df.columns:
-    df['Certifications'] = df['Certifications'].fillna('Not Certified')
+X = df.drop(target, axis=1)
+y = df[target]
 
-# 2️⃣ Convert Skills to Num_Skills
-df['Num_Skills'] = df['Skills'].apply(lambda x: len(str(x).split(',')))
+categorical_cols = X.select_dtypes(include=["object"]).columns
+numerical_cols = X.select_dtypes(exclude=["object"]).columns
 
-# 3️⃣ Categorical Variables Preparation
-cat_cols = ['Education', 'Certifications', 'Job Role']
-st.subheader("1. Categorical Variables")
+# Train Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
 
-st.markdown("""
-Categorical variables in our dataset include:  
-- **Education**  
-- **Certifications**  
-- **Job Role**  
+# Preprocessing
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", StandardScaler(), numerical_cols),
+        ("cat", OneHotEncoder(drop="first", handle_unknown="ignore"), categorical_cols)
+    ]
+)
 
-**Steps taken:**  
-- One-Hot Encoding applied to categorical columns using `pd.get_dummies()`  
-- Each category converted to separate binary column for modeling
-""")
+# Models
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=1000),
+    "Decision Tree": DecisionTreeClassifier(),
+    "Random Forest": RandomForestClassifier(),
+    "Gradient Boosting": GradientBoostingClassifier(),
+    "SVM": SVC()
+}
 
-df_encoded = pd.get_dummies(df[cat_cols], drop_first=True)
+results = []
 
-st.write("✅ Example of One-Hot Encoded Columns:")
-st.dataframe(df_encoded.head())
+for name, model in models.items():
 
-# 4️⃣ Numerical Variables Preparation
-num_cols = ['Experience (Years)', 'Salary Expectation ($)', 'Projects Count', 'AI Score (0-100)', 'Num_Skills']
-st.subheader("2. Numerical Variables")
+    pipeline = Pipeline(steps=[
+        ("preprocessing", preprocessor),
+        ("model", model)
+    ])
 
-# Scaling numerical features
-from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-df_scaled = pd.DataFrame(scaler.fit_transform(df[num_cols]), columns=num_cols)
+    pipeline.fit(X_train, y_train)
 
-st.write("✅ Scaled Numerical Features:")
-st.dataframe(df_scaled.head())
+    # Predictions
+    y_train_pred = pipeline.predict(X_train)
+    y_test_pred = pipeline.predict(X_test)
 
-# 5️⃣ Combine Encoded Categorical + Scaled Numerical
-X = pd.concat([df_scaled, df_encoded], axis=1)
+    # Train Metrics
+    train_acc = accuracy_score(y_train, y_train_pred)
+    train_prec = precision_score(y_train, y_train_pred, average="weighted")
+    train_rec = recall_score(y_train, y_train_pred, average="weighted")
+    train_f1 = f1_score(y_train, y_train_pred, average="weighted")
 
-st.subheader("3. Transformations Before Model Training")
-st.markdown("""
-Before feeding data into machine learning models:  
-- Combined **scaled numerical features** with **one-hot encoded categorical features**.  
-- Target variable (`Recruiter Decision`) converted to binary:  
-    - Shortlisted = 1  
-    - Rejected = 0  
-- Dataset is now clean, numeric, and ready for training.
-""")
+    # Test Metrics
+    test_acc = accuracy_score(y_test, y_test_pred)
+    test_prec = precision_score(y_test, y_test_pred, average="weighted")
+    test_rec = recall_score(y_test, y_test_pred, average="weighted")
+    test_f1 = f1_score(y_test, y_test_pred, average="weighted")
 
-# Target Variable
-y = df['Recruiter Decision'].map({'Shortlisted':1, 'Rejected':0})
+    # Overfitting / Underfitting Logic
+    gap = train_f1 - test_f1
 
-st.write("✅ Features (X) and Target (y) ready for ML models")
-st.write("X shape:", X.shape)
-st.write("y shape:", y.shape)
+    if train_f1 < 0.70 and test_f1 < 0.70:
+        status = "Underfitting"
+    elif gap > 0.10:
+        status = "Overfitting"
+    else:
+        status = "Generalized"
+
+    results.append([
+        name,
+        train_acc, train_prec, train_rec, train_f1,
+        test_acc, test_prec, test_rec, test_f1,
+        status
+    ])
+
+# Create DataFrame
+results_df = pd.DataFrame(results, columns=[
+    "Model",
+    "Train Accuracy", "Train Precision", "Train Recall", "Train F1-Score",
+    "Test Accuracy", "Test Precision", "Test Recall", "Test F1-Score",
+    "Status"
+])
+
+# Sort by Test F1
+results_df = results_df.sort_values(by="Test F1-Score", ascending=False)
+
+st.header("📋 Model Performance Comparison")
+st.dataframe(results_df)
+
+# Highlight Best Model
+best_model = results_df.iloc[0]
+st.success(f"🏆 Best Model: {best_model['Model']} ({best_model['Status']})")
 
 
-
-
+st.write(y.value_counts())
