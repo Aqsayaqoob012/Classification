@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import io
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -16,7 +19,55 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 
+# CSS for hiding header/footer, background animation, left-aligned content
+st.markdown(
+    """
+    <style>
+    /* Hide Streamlit header and footer */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
 
+    /* Animated pastel gradient background for the app */
+    .stApp {
+        background: linear-gradient(-45deg, #a8edea, #fed6e3, #a8edea, #fed6e3);
+        background-size: 400% 400%;
+        animation: gradientAnimation 15s ease infinite;
+        min-height: 100vh; /* full screen height */
+    }
+
+    @keyframes gradientAnimation {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
+    }
+
+    /* Keep content left-aligned */
+    .css-18e3th9 {  /* Streamlit main content container */
+        display: block;
+        text-align: left;
+    }
+
+    
+    .stDataFrame table, .stTable table {
+        border-collapse: collapse;
+        width: 100% !important;  /* full width */
+    }
+
+    /* Table cells borders */
+    .stDataFrame table th,
+    .stDataFrame table td,
+    .stTable table th,
+    .stTable table td {
+        border: 2px solid black !important;
+        padding: 8px; /* thoda padding for better readability */
+        text-align: left;
+    }
+
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # =========================
@@ -39,7 +90,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # =========================
 # App Content
 # =========================
-st.title("Salary Data Analysis & Prediction App")
+st.title("AI-Based Resume Analysis & Prediction App")
 st.markdown("Exploratory Data Analysis, Feature Engineering & Regression Models Comparison")
 
 # =========================
@@ -61,7 +112,7 @@ df_head.index = df_head.index + 1
 df_head.index.name = "S.No"
 
 # Display in Streamlit
-st.dataframe(df_head)
+st.table(df_head)
 
 
 # =========================
@@ -83,11 +134,11 @@ info_df = pd.DataFrame({
 })
 
 st.subheader("Data Types & Null Values")
-st.dataframe(info_df)  # nice interactive table
+st.table(info_df)  # nice interactive table
 
 
 st.subheader("Statistical Summary")
-st.dataframe(df.describe())
+st.table(df.describe())
 
 # =========================
 # Missing Values
@@ -108,7 +159,7 @@ else:
     missing_df.columns = ["Column", "Missing Count"]
 
     # Use st.dataframe with max_column_width
-    st.dataframe(
+    st.table(
         missing_df.style.set_table_styles(
             [{
                 'selector': 'th',
@@ -212,8 +263,7 @@ st.header("📊 Basic Analysis")
 # 1️⃣ Overall Distribution of Shortlisted vs Non-Shortlisted
 st.subheader("1. Distribution of Shortlisted vs Non-Shortlisted Candidates")
 
-# Count plot using Plotly
-import plotly.express as px
+
 
 fig1 = px.histogram(df, x='Recruiter Decision', color='Recruiter Decision',
                     title="Shortlisted vs Rejected Candidates",
@@ -235,21 +285,21 @@ st.subheader("2. Key Numerical & Categorical Variables")
 # Numerical Columns
 num_cols = ['Experience (Years)', 'Salary Expectation ($)', 'Projects Count', 'AI Score (0-100)']
 st.markdown("**Numerical Columns:**")
-st.write(num_cols)
+st.table(num_cols)
 
 # Categorical Columns
 cat_cols = ['Education', 'Certifications', 'Job Role', 'Skills']
 st.markdown("**Categorical Columns:**")
-st.write(cat_cols)
+st.table(cat_cols)
 
 # Optional: Show basic stats for numerical columns
 st.markdown("**Statistical Summary of Numerical Features:**")
-st.dataframe(df[num_cols].describe())
+st.table(df[num_cols].describe())
 
 
 
 
-import plotly.express as px
+
 
 st.subheader("1️⃣ Distribution of Numerical Features (Colorful Bars)")
 
@@ -295,8 +345,7 @@ for col in num_cols:
 
 
 
-import plotly.graph_objects as go
-import numpy as np
+
 
 st.subheader("Salary Expectation ($) Distribution ")
 
@@ -341,8 +390,6 @@ st.plotly_chart(fig, use_container_width=True)
 
 
 
-import streamlit as st
-import plotly.express as px
 
 st.subheader("📊 Categorical Features Analysis (Bar Plots)")
 
@@ -398,7 +445,7 @@ for col in cat_cols:
         st.info("👉 Some skills are very common across candidates.")
 
 
-from collections import Counter
+
 
 st.header("📊 Top 10 Most Common Skills")
 
@@ -454,6 +501,10 @@ st.subheader("1. AI Score by Recruiter Decision")
 fig1 = px.box(df, x='Recruiter Decision', y='AI Score (0-100)',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig1.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig1, use_container_width=True, key="ai_score_box")
 st.info("👉 Shortlisted candidates generally have higher AI Scores than rejected candidates.")
 
@@ -462,6 +513,10 @@ st.subheader("2. Experience vs Recruiter Decision")
 fig2 = px.box(df, x='Recruiter Decision', y='Experience (Years)',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig2.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig2, use_container_width=True, key="experience_box")
 st.info("👉 Shortlisted candidates tend to have slightly more experience.")
 
@@ -470,6 +525,10 @@ st.subheader("3. Education Level vs Recruiter Decision")
 edu_count = df.groupby(['Education','Recruiter Decision']).size().reset_index(name='Count')
 fig3 = px.bar(edu_count, x='Education', y='Count', color='Recruiter Decision',
              barmode='group', template='plotly_dark')
+fig3.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig3, use_container_width=True, key="education_bar")
 st.info("👉 Higher education levels (Bachelor, Master) have higher shortlisting rates.")
 
@@ -479,6 +538,10 @@ df['Num_Skills'] = df['Skills'].apply(lambda x: len(str(x).split(',')))
 fig4 = px.box(df, x='Recruiter Decision', y='Num_Skills',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig4.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig4, use_container_width=True, key="skills_box")
 st.info("👉 Candidates with more skills are more likely to be shortlisted.")
 
@@ -487,6 +550,10 @@ st.subheader("5. Projects Count vs Recruiter Decision")
 fig5 = px.box(df, x='Recruiter Decision', y='Projects Count',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig5.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig5, use_container_width=True, key="projects_box")
 st.info("👉 Candidates with more projects are slightly more likely to be shortlisted.")
 
@@ -495,6 +562,10 @@ st.subheader("6. Salary Expectation ($) vs Recruiter Decision")
 fig6 = px.box(df, x='Recruiter Decision', y='Salary Expectation ($)',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig6.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig6, use_container_width=True, key="salary_box")
 st.info("👉 Salary expectations are generally moderate; extremely high salaries reduce shortlisting probability.")
 
@@ -502,6 +573,10 @@ st.info("👉 Salary expectations are generally moderate; extremely high salarie
 st.subheader("7. AI Score by Job Role")
 fig7 = px.box(df, x='Job Role', y='AI Score (0-100)',
              color='Job Role', template='plotly_dark')
+fig7.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig7, use_container_width=True, key="ai_jobrole_box")
 st.info("👉 Certain job roles have higher AI Scores; e.g., Data Scientists may score higher than others.")
 
@@ -510,6 +585,10 @@ st.subheader("8. Correlation: Experience vs AI Score")
 fig8 = px.scatter(df, x='Experience (Years)', y='AI Score (0-100)',
                  color='Recruiter Decision', color_discrete_map=decision_colors,
                  template='plotly_dark')
+fig8.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig8, use_container_width=True, key="exp_vs_ai_scatter")
 corr = df['Experience (Years)'].corr(df['AI Score (0-100)'])
 st.info(f"👉 Correlation between Experience and AI Score: {corr:.2f}")
@@ -519,6 +598,10 @@ st.subheader("9. Certifications vs Recruiter Decision")
 cert_count = df.groupby(['Certifications','Recruiter Decision']).size().reset_index(name='Count')
 fig9 = px.bar(cert_count, x='Certifications', y='Count', color='Recruiter Decision',
              barmode='group', template='plotly_dark')
+fig9.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig9, use_container_width=True, key="certifications_bar")
 st.info("👉 Certain certifications are more common among shortlisted candidates.")
 
@@ -526,6 +609,10 @@ st.info("👉 Certain certifications are more common among shortlisted candidate
 st.subheader("10. Education vs AI Score")
 fig10 = px.box(df, x='Education', y='AI Score (0-100)',
              color='Education', template='plotly_dark')
+fig10.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig10, use_container_width=True, key="edu_vs_ai_box")
 st.info("👉 Higher education generally correlates with higher AI Scores.")
 
@@ -533,12 +620,20 @@ st.info("👉 Higher education generally correlates with higher AI Scores.")
 st.subheader("11. Experience vs Job Role")
 fig11 = px.box(df, x='Job Role', y='Experience (Years)',
              color='Job Role', template='plotly_dark')
+fig11.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig11, use_container_width=True, key="exp_jobrole_box")
 st.info("👉 Some job roles require more experience than others.")
 
 # 12️⃣ Salary Outliers Impact
 st.subheader("12. Salary Expectation Outliers")
 fig12 = px.box(df, y='Salary Expectation ($)', template='plotly_dark')
+fig12.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig12, use_container_width=True, key="salary_outlier_box")
 st.info("👉 Extreme salary expectations are capped; very high salaries reduce shortlisting probability.")
 
@@ -547,6 +642,10 @@ st.subheader("13. Projects Count vs Recruiter Decision")
 fig13 = px.box(df, x='Recruiter Decision', y='Projects Count',
              color='Recruiter Decision', color_discrete_map=decision_colors,
              template='plotly_dark')
+fig13.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig13, use_container_width=True, key="projects_decision_box")
 st.info("👉 More projects slightly increase chance of shortlisting.")
 
@@ -555,6 +654,10 @@ st.subheader("14. Correlation Matrix")
 num_cols = ['Experience (Years)', 'Salary Expectation ($)', 'Projects Count', 'AI Score (0-100)', 'Num_Skills']
 corr_matrix = df[num_cols].corr()
 fig14 = px.imshow(corr_matrix, text_auto=True, color_continuous_scale='Viridis', template='plotly_dark')
+fig14.update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',   # outer background
+    plot_bgcolor='rgba(0,0,0,0)'     # inner graph background
+)
 st.plotly_chart(fig14, use_container_width=True, key="corr_matrix")
 st.info("👉 AI Score is most correlated with shortlisting. Projects and experience have moderate correlation.")
 
@@ -660,11 +763,9 @@ results_df = pd.DataFrame(results, columns=[
 results_df = results_df.sort_values(by="Test F1-Score", ascending=False)
 
 st.header("📋 Model Performance Comparison")
-st.dataframe(results_df)
+st.table(results_df)
 
 # Highlight Best Model
 best_model = results_df.iloc[0]
 st.success(f"🏆 Best Model: {best_model['Model']} ({best_model['Status']})")
 
-
-st.write(y.value_counts())
